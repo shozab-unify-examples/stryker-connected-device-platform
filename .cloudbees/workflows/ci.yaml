@@ -16,6 +16,7 @@ jobs:
         uses: cloudbees-io/trufflehog-secret-scan-code@v1
         with:
           image-tag: v3
+          branch: main
 
   iac-scan:
     needs:
@@ -68,7 +69,7 @@ jobs:
         with:
           name: connected-device-platform
           version: 2.1.${{ cloudbees.run_number }}
-          url: https://github.com/cloudbees-days/stryker-connected-device-platform
+          url: https://github.com/shozab-unify-examples/stryker-connected-device-platform
       - name: Publish build evidence
         uses: cloudbees-io/publish-evidence-item@v1
         with:
@@ -96,7 +97,7 @@ jobs:
           name: connected-device-platform
           version: 2.1.${{ cloudbees.run_number }}
           environment-name: connected-device-dev
-          url: https://github.com/cloudbees-days/stryker-connected-device-platform
+          url: https://github.com/shozab-unify-examples/stryker-connected-device-platform
 
   deploy-staging:
     needs:
@@ -113,7 +114,7 @@ jobs:
           name: connected-device-platform
           version: 2.1.${{ cloudbees.run_number }}
           environment-name: connected-device-staging
-          url: https://github.com/cloudbees-days/stryker-connected-device-platform
+          url: https://github.com/shozab-unify-examples/stryker-connected-device-platform
 
   deploy-prod:
     needs:
@@ -131,4 +132,4 @@ jobs:
           name: connected-device-platform
           version: 2.1.${{ cloudbees.run_number }}
           environment-name: connected-device-prod
-          url: https://github.com/cloudbees-days/stryker-connected-device-platform
+          url: https://github.com/shozab-unify-examples/stryker-connected-device-platform
