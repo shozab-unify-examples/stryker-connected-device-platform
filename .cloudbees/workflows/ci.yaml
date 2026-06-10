@@ -1,0 +1,134 @@
+apiVersion: automation.cloudbees.io/v1alpha1
+kind: workflow
+name: Connected Device Platform CI
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  secrets-scan:
+    steps:
+      - name: Checkout
+        uses: cloudbees-io/checkout@v1
+      - name: Secrets Detection
+        uses: cloudbees-io/trufflehog-secret-scan-code@v1
+        with:
+          image-tag: v3
+
+  iac-scan:
+    needs:
+      - secrets-scan
+    steps:
+      - name: Checkout
+        uses: cloudbees-io/checkout@v1
+      - name: IaC Security Scan
+        uses: cloudbees-io/snyk-iac-plugin@v1
+        with:
+          snyk-token: ${{ secrets.SNYK_TOKEN }}
+
+  sast-scan:
+    needs:
+      - secrets-scan
+    steps:
+      - name: Checkout
+        uses: cloudbees-io/checkout@v1
+      - name: SAST Scan
+        uses: cloudbees-io/sonarqube-bundled-sast-scan-code@v2
+        with:
+          language: python
+
+  container-scan:
+    needs:
+      - sast-scan
+      - iac-scan
+    steps:
+      - name: Checkout
+        uses: cloudbees-io/checkout@v1
+      - name: Container Image Scan
+        uses: cloudbees-io/trivy-scan-container@v1
+        with:
+          image-location: stryker/connected-device-platform
+          image-tag: latest
+
+  build:
+    needs:
+      - container-scan
+    steps:
+      - name: Checkout
+        uses: cloudbees-io/checkout@v1
+      - name: Build device management service
+        uses: docker://python:3.11-slim
+        run: |
+          pip install -r requirements.txt --quiet 2>/dev/null || echo "No requirements.txt"
+          echo "Build complete — connected-device-platform v2.1.${{ cloudbees.run_number }}"
+      - name: Register build artifact
+        uses: cloudbees-io/register-build-artifact@v2
+        with:
+          name: connected-device-platform
+          version: 2.1.${{ cloudbees.run_number }}
+          url: https://github.com/cloudbees-days/stryker-connected-device-platform
+      - name: Publish build evidence
+        uses: cloudbees-io/publish-evidence-item@v1
+        with:
+          content: |
+            ## Connected Device Platform Build
+            - **Version**: 2.1.${{ cloudbees.run_number }}
+            - **Classification**: CRITICAL | connected-device | regulated | infrastructure-as-code
+            - **IaC Finding**: Exposed management endpoint (security-groups.tf:18) — OPEN
+            - **Owner**: Infrastructure Security
+          format: MARKDOWN
+
+  deploy-dev:
+    needs:
+      - build
+    environment: connected-device-dev
+    steps:
+      - name: Deploy to Dev
+        uses: docker://alpine:3.19
+        run: |
+          echo "Deploying connected-device-platform v2.1.${{ cloudbees.run_number }} to DEV"
+          echo "Target: cdp-dev.stryker-internal.io"
+      - name: Register deployed artifact
+        uses: cloudbees-io/register-deployed-artifact@v2
+        with:
+          name: connected-device-platform
+          version: 2.1.${{ cloudbees.run_number }}
+          environment-name: connected-device-dev
+          url: https://github.com/cloudbees-days/stryker-connected-device-platform
+
+  deploy-staging:
+    needs:
+      - deploy-dev
+    environment: connected-device-staging
+    steps:
+      - name: Deploy to Staging
+        uses: docker://alpine:3.19
+        run: |
+          echo "Deploying connected-device-platform v2.1.${{ cloudbees.run_number }} to STAGING"
+      - name: Register deployed artifact
+        uses: cloudbees-io/register-deployed-artifact@v2
+        with:
+          name: connected-device-platform
+          version: 2.1.${{ cloudbees.run_number }}
+          environment-name: connected-device-staging
+          url: https://github.com/cloudbees-days/stryker-connected-device-platform
+
+  deploy-prod:
+    needs:
+      - deploy-staging
+    environment: connected-device-prod
+    steps:
+      - name: Deploy to Production
+        uses: docker://alpine:3.19
+        run: |
+          echo "Deploying connected-device-platform v2.1.${{ cloudbees.run_number }} to PRODUCTION"
+          echo "Target: cdp.stryker.com"
+      - name: Register deployed artifact
+        uses: cloudbees-io/register-deployed-artifact@v2
+        with:
+          name: connected-device-platform
+          version: 2.1.${{ cloudbees.run_number }}
+          environment-name: connected-device-prod
+          url: https://github.com/cloudbees-days/stryker-connected-device-platform
