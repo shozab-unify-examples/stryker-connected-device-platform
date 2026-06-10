@@ -1,6 +1,7 @@
 name: Infrastructure-as-Code Governance Check
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
   pull_request:
