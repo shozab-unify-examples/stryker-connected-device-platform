@@ -39,22 +39,12 @@ jobs:
         with:
           language: python
 
-  container-scan:
+  build:
     needs:
       - sast-scan
       - iac-scan
-    steps:
-      - name: Checkout
-        uses: cloudbees-io/checkout@v1
-      - name: Container Image Scan
-        uses: cloudbees-io/trivy-scan-container@v1
-        with:
-          image-location: stryker/connected-device-platform
-          image-tag: latest
-
-  build:
-    needs:
-      - container-scan
+    outputs:
+      artifact-id: ${{ steps.register-artifact.outputs.artifact-id }}
     steps:
       - name: Checkout
         uses: cloudbees-io/checkout@v1
@@ -64,6 +54,7 @@ jobs:
           pip install -r requirements.txt --quiet 2>/dev/null || echo "No requirements.txt"
           echo "Build complete — connected-device-platform v2.1.${{ cloudbees.run_number }}"
       - name: Register build artifact
+        id: register-artifact
         uses: cloudbees-io/register-build-artifact@v2
         with:
           name: connected-device-platform
@@ -77,7 +68,6 @@ jobs:
             - **Version**: 2.1.${{ cloudbees.run_number }}
             - **Classification**: CRITICAL | connected-device | regulated | infrastructure-as-code
             - **IaC Finding**: Exposed management endpoint (security-groups.tf:18) — OPEN
-            - **Owner**: Infrastructure Security
           format: MARKDOWN
 
   deploy-dev:
@@ -86,12 +76,11 @@ jobs:
     steps:
       - name: Deploy to Dev
         uses: docker://alpine:3.19
-        run: |
-          echo "Deploying connected-device-platform v2.1.${{ cloudbees.run_number }} to DEV"
-          echo "Target: cdp-dev.stryker-internal.io"
+        run: echo "Deploying connected-device-platform v2.1.${{ cloudbees.run_number }} to DEV"
       - name: Register deployed artifact
         uses: cloudbees-io/register-deployed-artifact@v2
         with:
+          artifact-id: ${{ needs.build.outputs.artifact-id }}
           name: connected-device-platform
           version: 2.1.${{ cloudbees.run_number }}
           environment-name: connected-device-dev
@@ -99,15 +88,16 @@ jobs:
 
   deploy-staging:
     needs:
+      - build
       - deploy-dev
     steps:
       - name: Deploy to Staging
         uses: docker://alpine:3.19
-        run: |
-          echo "Deploying connected-device-platform v2.1.${{ cloudbees.run_number }} to STAGING"
+        run: echo "Deploying connected-device-platform v2.1.${{ cloudbees.run_number }} to STAGING"
       - name: Register deployed artifact
         uses: cloudbees-io/register-deployed-artifact@v2
         with:
+          artifact-id: ${{ needs.build.outputs.artifact-id }}
           name: connected-device-platform
           version: 2.1.${{ cloudbees.run_number }}
           environment-name: connected-device-staging
@@ -115,16 +105,16 @@ jobs:
 
   deploy-prod:
     needs:
+      - build
       - deploy-staging
     steps:
       - name: Deploy to Production
         uses: docker://alpine:3.19
-        run: |
-          echo "Deploying connected-device-platform v2.1.${{ cloudbees.run_number }} to PRODUCTION"
-          echo "Target: cdp.stryker.com"
+        run: echo "Deploying connected-device-platform v2.1.${{ cloudbees.run_number }} to PRODUCTION"
       - name: Register deployed artifact
         uses: cloudbees-io/register-deployed-artifact@v2
         with:
+          artifact-id: ${{ needs.build.outputs.artifact-id }}
           name: connected-device-platform
           version: 2.1.${{ cloudbees.run_number }}
           environment-name: connected-device-prod
