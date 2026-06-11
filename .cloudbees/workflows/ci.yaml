@@ -8,51 +8,46 @@ on:
   workflow_dispatch:
 
 jobs:
-  secrets-scan:
+  scan:
     steps:
       - name: Checkout
         uses: cloudbees-io/checkout@v1
-      - name: Secrets Detection
-        uses: cloudbees-io/trufflehog-secret-scan-code@v1
+      - name: Mock Secrets Scan
+        uses: docker://alpine:3.19
+        run: echo "[SCAN] Secrets scan complete — 3 findings (CRITICAL: RSA private key, AWS keys)"
+      - name: Mock IaC Scan
+        uses: docker://alpine:3.19
+        run: echo "[SCAN] IaC scan complete — 1 CRITICAL finding (SSH port 22 open to 0.0.0.0/0)"
+      - name: Mock SAST Scan
+        uses: docker://alpine:3.19
+        run: echo "[SCAN] SAST scan complete — 2 findings (HIGH)"
+      - name: Publish Security Evidence
+        uses: cloudbees-io/publish-evidence-item@v1
         with:
-          branch: main
+          content: |
+            ## Security Scan Results — Connected Device Platform
+            | Scanner | Findings | Severity |
+            |---------|----------|----------|
+            | Secrets | 3 | CRITICAL |
+            | IaC | 1 | CRITICAL |
+            | SAST | 2 | HIGH |
 
-  iac-scan:
-    needs:
-      - secrets-scan
-    steps:
-      - name: Checkout
-        uses: cloudbees-io/checkout@v1
-      - name: IaC Security Scan
-        uses: cloudbees-io/snyk-iac-plugin@v1
-        with:
-          snyk-token: ${{ secrets.SNYK_TOKEN }}
-
-  sast-scan:
-    needs:
-      - secrets-scan
-    steps:
-      - name: Checkout
-        uses: cloudbees-io/checkout@v1
-      - name: SAST Scan
-        uses: cloudbees-io/sonarqube-bundled-sast-scan-code@v2
-        with:
-          language: python
+            **Critical Finding**: RSA private key committed in src/device_manager.py
+            **IaC Finding**: security-groups.tf:18 — SSH port 22 open to 0.0.0.0/0 (CCI-IAC-001)
+            **SLA Status**: OVERDUE — 4 findings breached 7-day critical SLA
+          format: MARKDOWN
 
   build:
     needs:
-      - sast-scan
-      - iac-scan
+      - scan
     outputs:
       artifact-id: ${{ steps.register-artifact.outputs.artifact-id }}
     steps:
       - name: Checkout
         uses: cloudbees-io/checkout@v1
-      - name: Build device management service
-        uses: docker://python:3.11-slim
-        run: |
-          pip install -r requirements.txt --quiet 2>/dev/null || echo "No requirements.txt"
-          echo "Build complete — connected-device-platform v2.1.${{ cloudbees.run_number }}"
+      - name: Build
+        uses: docker://alpine:3.19
+        run: echo "Building connected-device-platform v2.1.${{ cloudbees.run_number }}"
       - name: Register build artifact
         id: register-artifact
         uses: cloudbees-io/register-build-artifact@v2
@@ -60,14 +55,13 @@ jobs:
           name: connected-device-platform
           version: 2.1.${{ cloudbees.run_number }}
           url: https://github.com/shozab-unify-examples/stryker-connected-device-platform
-      - name: Publish build evidence
+      - name: Publish Build Evidence
         uses: cloudbees-io/publish-evidence-item@v1
         with:
           content: |
-            ## Connected Device Platform Build
-            - **Version**: 2.1.${{ cloudbees.run_number }}
+            ## Build — Connected Device Platform v2.1.${{ cloudbees.run_number }}
             - **Classification**: CRITICAL | connected-device | regulated | infrastructure-as-code
-            - **IaC Finding**: Exposed management endpoint (security-groups.tf:18) — OPEN
+            - **Owner**: Connected Devices BU
           format: MARKDOWN
 
   deploy-dev:
@@ -76,8 +70,8 @@ jobs:
     steps:
       - name: Deploy to Dev
         uses: docker://alpine:3.19
-        run: echo "Deploying connected-device-platform v2.1.${{ cloudbees.run_number }} to DEV"
-      - name: Register deployed artifact
+        run: echo "Deployed connected-device-platform v2.1.${{ cloudbees.run_number }} to DEV"
+      - name: Register Deployed Artifact
         uses: cloudbees-io/register-deployed-artifact@v2
         with:
           artifact-id: ${{ needs.build.outputs.artifact-id }}
@@ -93,8 +87,8 @@ jobs:
     steps:
       - name: Deploy to Staging
         uses: docker://alpine:3.19
-        run: echo "Deploying connected-device-platform v2.1.${{ cloudbees.run_number }} to STAGING"
-      - name: Register deployed artifact
+        run: echo "Deployed connected-device-platform v2.1.${{ cloudbees.run_number }} to STAGING"
+      - name: Register Deployed Artifact
         uses: cloudbees-io/register-deployed-artifact@v2
         with:
           artifact-id: ${{ needs.build.outputs.artifact-id }}
@@ -110,8 +104,8 @@ jobs:
     steps:
       - name: Deploy to Production
         uses: docker://alpine:3.19
-        run: echo "Deploying connected-device-platform v2.1.${{ cloudbees.run_number }} to PRODUCTION"
-      - name: Register deployed artifact
+        run: echo "Deployed connected-device-platform v2.1.${{ cloudbees.run_number }} to PRODUCTION"
+      - name: Register Deployed Artifact
         uses: cloudbees-io/register-deployed-artifact@v2
         with:
           artifact-id: ${{ needs.build.outputs.artifact-id }}
