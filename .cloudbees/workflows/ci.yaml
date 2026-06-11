@@ -15,7 +15,6 @@ jobs:
       - name: Secrets Detection
         uses: cloudbees-io/trufflehog-secret-scan-code@v1
         with:
-          image-tag: v3
           branch: main
 
   iac-scan:
