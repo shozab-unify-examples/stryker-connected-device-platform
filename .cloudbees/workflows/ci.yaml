@@ -80,10 +80,7 @@ jobs:
         uses: cloudbees-io/register-deployed-artifact@v2
         with:
           artifact-id: ${{ needs.build.outputs.artifact-id }}
-          name: connected-device-platform
-          version: 2.1.${{ cloudbees.run_number }}
           target-environment: stryker-dev
-          url: https://github.com/shozab-unify-examples/stryker-connected-device-platform
 
   deploy-staging:
     needs:
@@ -98,10 +95,7 @@ jobs:
         uses: cloudbees-io/register-deployed-artifact@v2
         with:
           artifact-id: ${{ needs.build.outputs.artifact-id }}
-          name: connected-device-platform
-          version: 2.1.${{ cloudbees.run_number }}
           target-environment: stryker-staging
-          url: https://github.com/shozab-unify-examples/stryker-connected-device-platform
 
   deploy-prod:
     needs:
@@ -116,7 +110,4 @@ jobs:
         uses: cloudbees-io/register-deployed-artifact@v2
         with:
           artifact-id: ${{ needs.build.outputs.artifact-id }}
-          name: connected-device-platform
-          version: 2.1.${{ cloudbees.run_number }}
           target-environment: stryker-prod
-          url: https://github.com/shozab-unify-examples/stryker-connected-device-platform
